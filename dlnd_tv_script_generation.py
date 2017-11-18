@@ -69,7 +69,7 @@ print('\n'.join(text.split('\n')[view_sentence_range[0]:view_sentence_range[1]])
 # 
 # Return these dictionaries in the following tuple `(vocab_to_int, int_to_vocab)`
 
-# In[5]:
+# In[67]:
 
 
 import numpy as np
@@ -81,7 +81,7 @@ def create_lookup_tables(text):
     :param text: The text of tv scripts split into words
     :return: A tuple of dicts (vocab_to_int, int_to_vocab)
     """
-    unique_words = set(' '.join(text).split())
+    unique_words = set(text)
     vocab_to_int = {word: i for i, word in enumerate(unique_words)}
     int_to_vocab = {i: word for i, word in enumerate(unique_words)}
     return vocab_to_int, int_to_vocab
@@ -110,7 +110,7 @@ tests.test_create_lookup_tables(create_lookup_tables)
 # 
 # This dictionary will be used to token the symbols and add the delimiter (space) around it.  This separates the symbols as it's own word, making it easier for the neural network to predict on the next word. Make sure you don't use a token that could be confused as a word. Instead of using the token "dash", try using something like "||dash||".
 
-# In[6]:
+# In[68]:
 
 
 def token_lookup():
@@ -140,7 +140,7 @@ tests.test_tokenize(token_lookup)
 # ## Preprocess all the data and save it
 # Running the code cell below will preprocess all the data and save it to file.
 
-# In[7]:
+# In[69]:
 
 
 """
@@ -153,7 +153,7 @@ helper.preprocess_and_save_data(data_dir, token_lookup, create_lookup_tables)
 # # Check Point
 # This is your first checkpoint. If you ever decide to come back to this notebook or have to restart the notebook, you can start from here. The preprocessed data has been saved to disk.
 
-# In[8]:
+# In[70]:
 
 
 """
@@ -177,7 +177,7 @@ int_text, vocab_to_int, int_to_vocab, token_dict = helper.load_preprocess()
 # 
 # ### Check the Version of TensorFlow and Access to GPU
 
-# In[9]:
+# In[71]:
 
 
 """
@@ -206,7 +206,7 @@ else:
 # 
 # Return the placeholders in the following tuple `(Input, Targets, LearningRate)`
 
-# In[13]:
+# In[72]:
 
 
 def get_inputs():
@@ -215,8 +215,8 @@ def get_inputs():
     :return: Tuple (input, targets, learning rate)
     """
     vocab_len = len(vocab_to_int)
-    input_ph = tf.placeholder(tf.int32, shape=(None, None), name='input')
-    target_ph = tf.placeholder(tf.int32, shape=(None, None), name='target')
+    input_ph = tf.placeholder(tf.int32, shape=[None, None], name='input')
+    target_ph = tf.placeholder(tf.int32, shape=[None, None], name='target')
     learning_rate_ph = tf.placeholder(tf.float32, name='learning_rate')
     return input_ph, input_ph, learning_rate_ph
 
@@ -235,7 +235,7 @@ tests.test_get_inputs(get_inputs)
 # 
 # Return the cell and initial state in the following tuple `(Cell, InitialState)`
 
-# In[14]:
+# In[161]:
 
 
 def get_init_cell(batch_size, rnn_size, rnn_layers=2):
@@ -245,12 +245,10 @@ def get_init_cell(batch_size, rnn_size, rnn_layers=2):
     :param rnn_size: Size of RNNs
     :return: Tuple (cell, initialize state)
     """
-    keep_prob = tf.placeholder(tf.float32, name='keep_prob')
     def buildLstm():
         print('batch_size : {}'.format(batch_size))
         lstm = tf.contrib.rnn.BasicLSTMCell(rnn_size)
-        drop = tf.contrib.rnn.DropoutWrapper(lstm, keep_prob)
-        return drop
+        return lstm
     
     cell = tf.contrib.rnn.MultiRNNCell([buildLstm() for _ in range(rnn_layers)])
     
@@ -269,7 +267,7 @@ tests.test_get_init_cell(get_init_cell)
 # ### Word Embedding
 # Apply embedding to `input_data` using TensorFlow.  Return the embedded sequence.
 
-# In[15]:
+# In[162]:
 
 
 def get_embed(input_data, vocab_size, embed_dim):
@@ -280,7 +278,8 @@ def get_embed(input_data, vocab_size, embed_dim):
     :param embed_dim: Number of embedding dimensions
     :return: Embedded input.
     """
-    embedding = tf.Variable(tf.truncated_normal((vocab_size, embed_dim), stddev=0.01))
+#     embedding = tf.Variable(tf.truncated_normal((vocab_size, embed_dim), stddev=0.01))
+    embedding = tf.Variable(tf.random_uniform((vocab_size, embed_dim), minval=-1, maxval=1))
     embed = tf.nn.embedding_lookup(embedding, input_data)
     return embed
 
@@ -298,7 +297,7 @@ tests.test_get_embed(get_embed)
 # 
 # Return the outputs and final_state state in the following tuple `(Outputs, FinalState)` 
 
-# In[16]:
+# In[163]:
 
 
 def build_rnn(cell, inputs):
@@ -327,7 +326,7 @@ tests.test_build_rnn(build_rnn)
 # 
 # Return the logits and final state in the following tuple (Logits, FinalState) 
 
-# In[17]:
+# In[164]:
 
 
 def build_nn(cell, rnn_size, input_data, vocab_size, embed_dim):
@@ -400,7 +399,7 @@ tests.test_build_nn(build_nn)
 # 
 # Notice that the last target value in the last batch is the first input value of the first batch. In this case, `1`. This is a common technique used when creating sequence batches, although it is rather unintuitive.
 
-# In[19]:
+# In[165]:
 
 
 def get_batches(int_text, batch_size, seq_length):
@@ -415,6 +414,10 @@ def get_batches(int_text, batch_size, seq_length):
     step = batch_size * seq_length
     batchs = len(int_text) // step
     ret = np.zeros((batchs, 2, batch_size, seq_length), dtype=int)
+    
+#     print(ret.shape)
+#     print('seq_length : ', seq_length)
+    
     if batchs * step == len(int_text):
         int_text.append(0)
     int_text[batchs * step] = int_text[0]
@@ -429,7 +432,7 @@ def get_batches(int_text, batch_size, seq_length):
     return ret
 
 
-ret = get_batches([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], 2, 3)
+ret = get_batches([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20], 3, 2)
 print(ret)
 
 """
@@ -450,23 +453,23 @@ tests.test_get_batches(get_batches)
 # - Set `learning_rate` to the learning rate.
 # - Set `show_every_n_batches` to the number of batches the neural network should print progress.
 
-# In[20]:
+# In[200]:
 
 
 # Number of Epochs
-num_epochs = 30
+num_epochs = 31
 # Batch Size
-batch_size = 16
+batch_size = 256
 # RNN Size
 rnn_size = 256
 # Embedding Dimension Size
 embed_dim = 256
 # Sequence Length
-seq_length = 32
+seq_length = 16
 # Learning Rate
 learning_rate = 0.004
 # Show stats for every n number of batches
-show_every_n_batches = 100
+show_every_n_batches = 32
 
 """
 DON'T MODIFY ANYTHING IN THIS CELL THAT IS BELOW THIS LINE
@@ -477,7 +480,7 @@ save_dir = './save'
 # ### Build the Graph
 # Build the graph using the neural network you implemented.
 
-# In[21]:
+# In[201]:
 
 
 """
@@ -514,7 +517,7 @@ with train_graph.as_default():
 # ## Train
 # Train the neural network on the preprocessed data.  If you have a hard time getting a good loss, check the [forums](https://discussions.udacity.com/) to see if anyone is having the same problem.
 
-# In[23]:
+# In[202]:
 
 
 """
@@ -524,7 +527,6 @@ batches = get_batches(int_text, batch_size, seq_length)
 
 with tf.Session(graph=train_graph) as sess:
     sess.run(tf.global_variables_initializer())
-    keep_prob = sess.graph.get_tensor_by_name('keep_prob:0')
 
     for epoch_i in range(num_epochs):
         state = sess.run(initial_state, {input_text: batches[0][0]})
@@ -534,10 +536,12 @@ with tf.Session(graph=train_graph) as sess:
                 input_text: x,
                 targets: y,
                 initial_state: state,
-                keep_prob: 0.8,
                 lr: learning_rate}
             train_loss, state, _ = sess.run([cost, final_state, train_op], feed)
-
+#             if batch_i == epoch_i:
+#                 print('x : ', x)
+#                 print('y : ', y)
+            
             # Show every <show_every_n_batches> batches
             if (epoch_i * len(batches) + batch_i) % show_every_n_batches == 0:
                 print('Epoch {:>3} Batch {:>4}/{}   train_loss = {:.3f}'.format(
@@ -555,7 +559,7 @@ with tf.Session(graph=train_graph) as sess:
 # ## Save Parameters
 # Save `seq_length` and `save_dir` for generating a new TV script.
 
-# In[24]:
+# In[203]:
 
 
 """
@@ -567,7 +571,7 @@ helper.save_params((seq_length, save_dir))
 
 # # Checkpoint
 
-# In[25]:
+# In[204]:
 
 
 """
@@ -582,6 +586,12 @@ _, vocab_to_int, int_to_vocab, token_dict = helper.load_preprocess()
 seq_length, load_dir = helper.load_params()
 
 
+# In[205]:
+
+
+print('load_dir : ', load_dir)
+
+
 # ## Implement Generate Functions
 # ### Get Tensors
 # Get tensors from `loaded_graph` using the function [`get_tensor_by_name()`](https://www.tensorflow.org/api_docs/python/tf/Graph#get_tensor_by_name).  Get the tensors using the following names:
@@ -592,7 +602,7 @@ seq_length, load_dir = helper.load_params()
 # 
 # Return the tensors in the following tuple `(InputTensor, InitialStateTensor, FinalStateTensor, ProbsTensor)` 
 
-# In[26]:
+# In[206]:
 
 
 def get_tensors(loaded_graph):
@@ -618,7 +628,7 @@ tests.test_get_tensors(get_tensors)
 # ### Choose Word
 # Implement the `pick_word()` function to select the next word using `probabilities`.
 
-# In[27]:
+# In[207]:
 
 
 def pick_word(probabilities, int_to_vocab):
@@ -645,7 +655,7 @@ tests.test_pick_word(pick_word)
 # ## Generate TV Script
 # This will generate the TV script for you.  Set `gen_length` to the length of TV script you want to generate.
 
-# In[28]:
+# In[208]:
 
 
 gen_length = 200
@@ -661,9 +671,11 @@ with tf.Session(graph=loaded_graph) as sess:
     loader = tf.train.import_meta_graph(load_dir + '.meta')
     loader.restore(sess, load_dir)
 
+#     all_name = [n.name for n in loaded_graph.as_graph_def().node]
+#     print('\n'.join(all_name))
+    
     # Get Tensors from loaded model
     input_text, initial_state, final_state, probs = get_tensors(loaded_graph)
-    keep_prob = sess.graph.get_tensor_by_name('keep_prob:0')
 
     # Sentences generation setup
     gen_sentences = [prime_word + ':']
@@ -678,7 +690,7 @@ with tf.Session(graph=loaded_graph) as sess:
         # Get Prediction
         probabilities, prev_state = sess.run(
             [probs, final_state],
-            {input_text: dyn_input, initial_state: prev_state, keep_prob: 1.0})
+            {input_text: dyn_input, initial_state: prev_state})
         
         pred_word = pick_word(probabilities[dyn_seq_length-1], int_to_vocab)
 
